@@ -1,0 +1,3 @@
+letrec div4(n) = if zero?(n) then 0 else -((div4 -(n, 4)), -(0, 1))
+  in (div4 16)
+

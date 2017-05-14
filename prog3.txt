@@ -1,0 +1,6 @@
+let addn = proc(n)
+             proc(x)
+               -(n, -(0, x))
+  in let addtwo = (addn 2)
+       in (addtwo 3)
+
