@@ -1,5 +1,5 @@
-;;; sllgen -- Scheme LL(1) parser generator
-
+;;; sllgen -- Scheme LL parser generator
+;; http://www.ccs.neu.edu/home/dherman/browse/projects/reduction-semantics/sllgen.scm
 #lang r5rs
 
 (#%require "define-datatype.scm")
