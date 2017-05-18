@@ -139,7 +139,7 @@
 (define expval->list
   (lambda (v)
     (cases expval v
-      (list-val (lst) lst)
+      (list-val (lst) (expval->schemeval (list-val lst)))
       (else (expval-extractor-error 'list v)))))
 
 (define expval-null?
@@ -495,11 +495,15 @@
   (lambda (filename)
     (let* ((prog (parser (file->string filename)))
             (result (value-of-program prog (empty-env))))
-      (expval->schemeval result))))
+      (if (expval? result)
+          (expval->schemeval result)
+          result))))
 
 (define run
   (lambda (string)
     (let* ((prog (parser string))
            (result (value-of-program prog (empty-env))))
-      (expval->schemeval result))))
+      (if (expval? result)
+          (expval->schemeval result)
+          result))))
      
