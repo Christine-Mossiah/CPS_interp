@@ -329,7 +329,7 @@
 
       (cons-cont2 (val1 saved-cont)
                   (apply-cont saved-cont
-                              (list-val (cons val1 val))))
+                              (list-val (list val1 val))))
 
       (car-cont (saved-cont)
                 (apply-cont saved-cont
