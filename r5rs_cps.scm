@@ -25,6 +25,12 @@
     (else ("else") string)
     (zero? ("zero?") string)
     (less? ("less?") string)
+    (more? ("more?") string)
+    (cons ("cons") string)
+    (car ("car") string)
+    (cdr ("cdr") string)
+    (emptylist ("emptylist") string)
+    (list ("list") string)
     (proc ("proc") string)
     ))
 
@@ -45,6 +51,9 @@
      ("less?" "(" expression "," expression ")")
      less?-exp)
     (expression
+     ("more?" "(" expression "," expression ")")
+     more?-exp)
+    (expression
      ("if" expression "then" expression "else" expression)
      if-exp)
     (expression (identifier) var-exp)
@@ -55,20 +64,35 @@
      ("letrec" identifier "(" identifier ")" "=" expression "in" expression)
      letrec-exp)
     (expression
-     ("proc" "(" identifier (arbno identifier) ")" expression)
-     proc-exp)
-    (expression
      ("(" expression expression (arbno expression) ")")
      app-exp)
+    (expression
+     ("cons" "(" expression "," expression ")")
+     cons-exp)
+    (expression
+     ("car" "(" expression ")")
+     car-exp)
+    (expression
+     ("cdr" "(" expression ")")
+     cdr-exp)
+    (expression
+     ("emptylist")
+     emptylist-exp)
+    (expression
+     ("null?" "(" expression ")")
+     null?-exp)
+    (expression
+     ("list" "(" (separated-list expression ",") ")" )
+     list-exp)
+    (expression
+     ("proc" "(" identifier (arbno identifier) ")" expression)
+     proc-exp)    
     ))
 
 ;; ----------------------------------------------------------------------
-;; Use sllgen to generate lexer and parser from the corresponding
-;; specifications.
+;; Use sllgen to generate lexer and parser 
+;; sllgen functions come from sllgen.scm 
 ;; ----------------------------------------------------------------------
-
-(define lexer
-  (sllgen:make-string-scanner let-scanner-spec let-grammar-spec))
 
 (define parser
   (sllgen:make-string-parser let-scanner-spec let-grammar-spec))
@@ -79,12 +103,17 @@
 ;; expval data type - expressed values
 ;; ----------------------------------------------------------------------
 
+(define pair-or-nil?
+  (lambda (v)
+    (or (pair? v) (null? v))))
 
 (define-datatype expval expval?
   (num-val
    (value number?))
   (bool-val
    (boolean boolean?))
+  (list-val
+   (list pair-or-nil?))
   (proc-val
    (proc proc?)))
 
@@ -99,6 +128,25 @@
       (cases expval v
         (bool-val (bool) bool)
         (else (expval-extractor-error 'bool v)))))
+
+(define expval->pair
+  (lambda (v)
+    (cases expval v
+           (list-val (car cdr)
+                     (cons car cdr))
+           (else (expval-extractor-error 'pair v)))))
+
+(define expval->list
+  (lambda (v)
+    (cases expval v
+      (list-val (lst) (expval->schemeval (list-val lst)))
+      (else (expval-extractor-error 'list v)))))
+
+(define expval-null?
+  (lambda (v)
+    (cases expval v
+           (emptylist-val () (bool-val #t))
+           (else (bool-val #f)))))
 
 (define expval->proc
   (lambda (v)
@@ -170,6 +218,15 @@
   ;; Receives the value of the right-hand operand.
   (less2-cont (left-operand expval?)
               (saved-cont continuation?))
+  ;; Continuation for the more? operator.
+  ;; Receives the value of the left-hand operand.
+  (more1-cont (exp2 expression?)
+              (saved-env env?)
+              (saved-cont continuation?))
+  ;; Continuation for the more? operator.
+  ;; Receives the value of the right-hand operand.
+  (more2-cont (left-operand expval?)
+              (saved-cont continuation?))
   ;; Continuation for let.
   ;; Receives the value to which we want to bind the variable
   ;; introduced by the let.
@@ -191,13 +248,35 @@
              (evaluated-arg-list list?)
              (saved-env env?)
              (saved-cont continuation?))
+
+  (cons-cont (exp2 expression?)
+             (saved-env env?)
+             (saved-cont continuation?))
+
+  (cons-cont2 (val1 expval?)
+              (saved-cont continuation?))
+
+  (car-cont (saved-cont continuation?))
+
+  (cdr-cont (saved-cont continuation?))
+
+  (null?-cont (saved-cont continuation?))
+
+  (list-cont (args (list-of expression?))
+             (saved-env env?)
+             (saved-cont continuation?))
+
+  (list-cont-else (args (list-of expression?))
+                  (prev-args list?)
+                  (saved-env env?)
+                  (saved-cont continuation?))
   )
 
 (define apply-cont
   (lambda (cont val)
     (cases continuation cont
       (end-cont ()
-        (begin (eopl:printf "End of computation.~%")
+        (begin 
                val))
       (zero1-cont (saved-cont)
                   (apply-cont saved-cont (bool-val (zero? (expval->num val)))))
@@ -214,6 +293,11 @@
                   (value-of/k exp2 saved-env (less2-cont val saved-cont)))
       (less2-cont (left-operand saved-cont)
                   (apply-cont saved-cont (bool-val (< (expval->num left-operand)
+                                                      (expval->num val)))))
+      (more1-cont (exp2 saved-env saved-cont)
+                  (value-of/k exp2 saved-env (more2-cont val saved-cont)))
+      (more2-cont (left-operand saved-cont)
+                  (apply-cont saved-cont (bool-val (> (expval->num left-operand)
                                                       (expval->num val)))))
       (let-cont (var body-exp saved-env saved-cont)
                 (value-of/k body-exp (extend-env var val saved-env) saved-cont))
@@ -238,6 +322,48 @@
                                                                             (append evaluated-arg-list (list val))
                                                                             saved-env
                                                                             saved-cont))))
+
+      (cons-cont (exp2 saved-env saved-cont)
+                 (value-of/k exp2 saved-env
+                             (cons-cont2 val saved-cont)))
+
+      (cons-cont2 (val1 saved-cont)
+                  (apply-cont saved-cont
+                              (list-val (cons val1 val))))
+
+      (car-cont (saved-cont)
+                (apply-cont saved-cont
+                            (car (expval->list val))))
+
+      (cdr-cont (saved-cont)
+                (apply-cont saved-cont
+                            (cdr (expval->list val))))
+      
+      (null?-cont (saved-cont)
+                  (apply-cont saved-cont
+                              (expval-null? val)))
+      
+      (list-cont (args saved-env saved-cont)
+                 (if (null? args)
+                     (apply-cont saved-cont
+                                 (list-val val (emptylist-val)))
+                     (value-of/k (car args)
+                                 saved-env
+                                 (list-cont-else (cdr args)
+                                                 (list val)
+                                                 saved-env saved-cont))))
+
+      (list-cont-else (args prev-args saved-env saved-cont)
+                      (if (null? args)
+                          (apply-cont saved-cont
+                                      (list-val (append prev-args (list val))))
+                          (value-of/k (car args)
+                                      saved-env
+                                      (list-cont-else
+                                       (cdr args)
+                                       (append prev-args (list val))
+                                       saved-env
+                                       saved-cont))))
       )))
 
 (define create-call-env
@@ -258,8 +384,10 @@
           (saved-env env?)))
 
 ;; ----------------------------------------------------------------------
-;; The interpreter
+;; The interpreter (CPS)
 ;; ----------------------------------------------------------------------
+
+
 
 (define value-of-program
   (lambda (p env)
@@ -270,11 +398,12 @@
 (define value-of/k
   (lambda (exp env cont)
     (cases expression exp
-      (const-exp (n) (apply-cont cont (num-val n)))
+      (const-exp (num) (apply-cont cont (num-val num)))
       (var-exp (var) (apply-cont cont (apply-env var env)))
       (proc-exp (param more-params body-exp)
-                (apply-cont cont (proc-val (a-proc param body-exp env))))
-      (zero?-exp (subexp) (value-of/k subexp env (zero1-cont cont)))
+                (apply-cont cont
+                            (proc-val (a-proc param body-exp env))))
+      (zero?-exp (exp1) (value-of/k exp1 env (zero1-cont cont)))
       (letrec-exp (procname param procbody-exp body-exp)
                   (value-of/k body-exp (letrec-extend-env procname param procbody-exp env) cont))
       (if-exp (exp1 exp2 exp3) (value-of/k exp1 env (if-test-cont exp2 exp3 env cont)))
@@ -282,17 +411,36 @@
                 (value-of/k exp1 env (diff1-cont exp2 env cont)))
       (let-exp (var val-exp body-exp)
                (value-of/k val-exp env (let-cont var body-exp env cont)))
-      (app-exp (rator-exp rand-exp more-rand-exps);; TODO: send all rand exps to rator-cont
+      (app-exp (rator-exp rand-exp more-rand-exps)
                (value-of/k rator-exp env (rator-cont (list rand-exp) env cont)))
       (less?-exp (exp1 exp2)
                  (value-of/k exp1 env (less1-cont exp2 env cont)))
-      )
-    ))
+      (more?-exp (exp1 exp2)
+                 (value-of/k exp1 env (more1-cont exp2 env cont)))
+      (cons-exp (exp1 exp2)
+                (value-of/k exp1 env
+                            (cons-cont exp2 env cont)))
+      (car-exp (exp)
+               (value-of/k exp env (car-cont cont)))
+      (cdr-exp (exp)
+               (value-of/k exp env (cdr-cont cont)))
+      
+      (null?-exp (exp)
+                 (value-of/k exp env (null?-cont cont)))    
+      (emptylist-exp ()
+                          (apply-cont cont (emptylist-val)))
+      (list-exp (args)
+		     (if (null? args)
+			 (apply-cont cont (emptylist-val))
+			 (value-of/k (car args)
+				     env
+				     (list-cont (cdr args) env cont))))
+    )))
 
 ;(define value-of
 ;  (lambda (exp env)
 ;    (cases expression exp
-;      (const-exp (n) (num-val n))
+;      (const-exp (num) (num-val num))
 ;      (diff-exp (exp1 exp2)
 ;                (let ((val1 (expval->num (value-of exp1 env)))
 ;                      (val2 (expval->num (value-of exp2 env))))
@@ -337,18 +485,25 @@
     (cases expval result
       (num-val (n) n)
       (bool-val (b) b)
+      (list-val (lst)
+                (if (null? lst)
+                    lst
+                    (cons (expval->schemeval (car lst)) (expval->schemeval (list-val (cdr lst))))))
       (proc-val (p) p))))
     
-
-(define test-proc
+(define test-prog
   (lambda (filename)
     (let* ((prog (parser (file->string filename)))
             (result (value-of-program prog (empty-env))))
-      (expval->schemeval result))))
+      (if (expval? result)
+          (expval->schemeval result)
+          result))))
 
-(define exec
-  (lambda (progtext)
-    (let* ((prog (parser progtext))
+(define run
+  (lambda (string)
+    (let* ((prog (parser string))
            (result (value-of-program prog (empty-env))))
-      (expval->schemeval result))))
-
+      (if (expval? result)
+          (expval->schemeval result)
+          result))))
+     

@@ -1,5 +1,8 @@
-;; define-datatype.scm 
+;; define-datatype.scm
+;; https://www.cs.bgu.ac.il/~elhadad/advpro/2003/define-datatype.scm
+;; http://www.ccs.neu.edu/home/wand/eopl/interps/r5rs.scm
 #lang r5rs
+
 (#%provide (all-defined)) 
 
 (define eopl:printf
