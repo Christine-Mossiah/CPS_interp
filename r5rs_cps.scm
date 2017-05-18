@@ -325,11 +325,11 @@
 
       (cons-cont (exp2 saved-env saved-cont)
                  (value-of/k exp2 saved-env
-                             (cons-cont2 val saved-cont)))
+                            (cons-cont2 val saved-cont)))
 
       (cons-cont2 (val1 saved-cont)
                   (apply-cont saved-cont
-                              (list-val (cons val1 val))))
+                              (list-val (list val1 val))))
 
       (car-cont (saved-cont)
                 (apply-cont saved-cont
