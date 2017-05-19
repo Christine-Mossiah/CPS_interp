@@ -29,6 +29,10 @@
     (cons ("cons") string)
     (car ("car") string)
     (cdr ("cdr") string)
+    (cadr ("cadr") string)
+    (cddr ("cddr") string)
+    (caddr ("caddr") string)
+    (cdddr ("cdddr") string)
     (emptylist ("emptylist") string)
     (list ("list") string)
     (proc ("proc") string)
@@ -75,6 +79,18 @@
     (expression
      ("cdr" "(" expression ")")
      cdr-exp)
+    (expression
+     ("cadr" "(" expression ")")
+     cadr-exp)
+    (expression
+     ("cddr" "(" expression ")")
+     cddr-exp)
+    (expression
+     ("caddr" "(" expression ")")
+     caddr-exp)
+    (expression
+     ("cdddr" "(" expression ")")
+     cdddr-exp)
     (expression
      ("emptylist")
      emptylist-exp)
@@ -260,6 +276,14 @@
 
   (cdr-cont (saved-cont continuation?))
 
+  (cadr-cont (saved-cont continuation?))
+
+  (cddr-cont (saved-cont continuation?))
+
+  (caddr-cont (saved-cont continuation?))
+
+  (cdddr-cont (saved-cont continuation?))
+
   (null?-cont (saved-cont continuation?))
 
   (list-cont (args (list-of expression?))
@@ -325,7 +349,7 @@
 
       (cons-cont (exp2 saved-env saved-cont)
                  (value-of/k exp2 saved-env
-                            (cons-cont2 val saved-cont)))
+                             (cons-cont2 val saved-cont)))
 
       (cons-cont2 (val1 saved-cont)
                   (apply-cont saved-cont
@@ -338,6 +362,22 @@
       (cdr-cont (saved-cont)
                 (apply-cont saved-cont
                             (cdr (expval->list val))))
+
+      (cadr-cont (saved-cont)
+                (apply-cont saved-cont
+                            (cadr (expval->list val))))
+
+      (cddr-cont (saved-cont)
+                (apply-cont saved-cont
+                            (cddr (expval->list val))))
+
+      (caddr-cont (saved-cont)
+                (apply-cont saved-cont
+                            (caddr (expval->list val))))
+
+      (cdddr-cont (saved-cont)
+                (apply-cont saved-cont
+                            (cdddr (expval->list val))))
       
       (null?-cont (saved-cont)
                   (apply-cont saved-cont
@@ -424,7 +464,14 @@
                (value-of/k exp env (car-cont cont)))
       (cdr-exp (exp)
                (value-of/k exp env (cdr-cont cont)))
-      
+      (cadr-exp (exp)
+               (value-of/k exp env (cadr-cont cont)))
+      (cddr-exp (exp)
+               (value-of/k exp env (cddr-cont cont)))
+      (caddr-exp (exp)
+               (value-of/k exp env (caddr-cont cont)))
+      (cdddr-exp (exp)
+               (value-of/k exp env (cdddr-cont cont)))
       (null?-exp (exp)
                  (value-of/k exp env (null?-cont cont)))    
       (emptylist-exp ()
