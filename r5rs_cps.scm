@@ -66,7 +66,7 @@
      letrec-exp)
     (expression
      ("(" expression expression (arbno expression) ")")
-     app-exp)
+     call-exp)
     (expression
      ("cons" "(" expression "," expression ")")
      cons-exp)
@@ -302,10 +302,6 @@
       (cons-cont2 (val1 saved-cont)
                   (apply-cont saved-cont
                               (list-val (list val1 val))))
-<<<<<<< HEAD
-
-=======
->>>>>>> master
       (car-cont (saved-cont)
                 (apply-cont saved-cont
                             (car (expval->list val))))
@@ -388,7 +384,7 @@
                 (value-of/k exp1 env (diff1-cont exp2 env cont)))
       (let-exp (var val-exp body-exp)
                (value-of/k val-exp env (let-cont var body-exp env cont)))
-      (app-exp (rator-exp rand-exp more-rand-exps)
+      (call-exp (rator-exp rand-exp more-rand-exps)
                (value-of/k rator-exp env (rator-cont (list rand-exp) env cont)))
       (less?-exp (exp1 exp2)
                  (value-of/k exp1 env (less1-cont exp2 env cont)))

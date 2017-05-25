@@ -1,0 +1,13 @@
+let ycomb = proc (f)
+              let d = proc (x)
+                        proc (z)
+                          ((f (x x)) z)
+                in proc (n) ((f (d d)) n)
+  in let makediv4 = proc (f)
+                      proc (x)
+                       if zero?(x)
+                          then 0
+                          else -((f -(x,4)), -(0,1))
+    in let div4 = (ycomb makediv4)
+      in (div4 16)
+
